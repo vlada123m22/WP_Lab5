@@ -54,10 +54,23 @@ Go2Web {
         try {
             URL url = new URL(urlString);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setInstanceFollowRedirects(true);
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent", "Mozilla/5.0");
             conn.setRequestProperty("Accept", "text/html,application/json");
 
+            // Handle HTTP redirects
+            int status = conn.getResponseCode();
+            if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM) {
+                String newUrl = conn.getHeaderField("Location");
+                url = new URL(newUrl);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+                conn.setRequestProperty("Accept", "text/html,application/json");
+            }
+
+            // Read response content
             BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             StringBuilder content = new StringBuilder();
             String line;
@@ -160,6 +173,7 @@ Go2Web {
     }
 
     private static String extractTextContent(String html) {
+        // Remove unwanted content like scripts and styles
         html = html.replaceAll("(?s)<script.*?>.*?</script>", "");
         html = html.replaceAll("(?s)<style.*?>.*?</style>", "");
         html = html.replaceAll("<[^>]+>", " ");
