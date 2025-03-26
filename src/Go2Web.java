@@ -81,14 +81,12 @@ public class Go2Web {
 
     private static void searchWeb(String query) {
         try {
-            // Perform search using Bing
             String searchUrl = "https://www.bing.com/search?q=" + query.replace(" ", "+");
             URL url = new URL(searchUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent", "Mozilla/5.0");
 
-            // Read search results page
             BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             StringBuilder content = new StringBuilder();
             String line;
@@ -97,24 +95,21 @@ public class Go2Web {
                 content.append(line).append("\n");
             }
             reader.close();
+
+            extractSearchResults(content.toString());
         } catch (Exception e) {
             System.out.println("Error performing search: " + e.getMessage());
         }
     }
 
-    private static List<String> extractSearchResults(String html) {
-        // Extract URLs and titles from search results
+    private static void extractSearchResults(String html) {
         Pattern pattern = Pattern.compile("<a href=\\\"(https?://[^\\\"]+)\\\".*?>(.*?)</a>");
         Matcher matcher = pattern.matcher(html);
-        List<String> urls = new ArrayList<>();
         int count = 0;
         while (matcher.find() && count < 10) {
-            String result = matcher.group(1);
-            System.out.println((count + 1) + ". " + matcher.group(2) + " - " + result);
-            urls.add(result);
+            System.out.println((count + 1) + ". " + matcher.group(2) + " - " + matcher.group(1));
             count++;
         }
-        return urls;
     }
 
 
