@@ -2,6 +2,9 @@
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+.idea/
+src/Go2Web.class
+
 
 ### Eclipse ###
 .apt_generated
