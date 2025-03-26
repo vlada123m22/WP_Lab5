@@ -41,16 +41,19 @@ public class Go2Web {
             URL url = new URL(urlString);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
 
             BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             StringBuilder content = new StringBuilder();
             String line;
 
-            while ((line = reader.readLine()) != null) {
+            while ((reader.readLine()) != null)
+            {
+                line = (reader.readLine());
                 content.append(line).append("\n");
             }
             reader.close();
-            System.out.println(stripHTML(content.toString()));
+            System.out.println(extractTextContent(content.toString()));
         } catch (Exception e) {
             System.out.println("Error fetching the webpage: " + e.getMessage());
         }
@@ -62,6 +65,7 @@ public class Go2Web {
             URL url = new URL(searchUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
 
             BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             StringBuilder content = new StringBuilder();
@@ -88,8 +92,13 @@ public class Go2Web {
         }
     }
 
-    private static String stripHTML(String html) {
-        return html.replaceAll("<[^>]+>", "").replaceAll("\\s+", " ").trim();
+    private static String extractTextContent(String html) {
+        html = html.replaceAll("(?s)<script.*?>.*?</script>", ""); // Remove scripts
+        html = html.replaceAll("(?s)<style.*?>.*?</style>", ""); // Remove styles
+        html = html.replaceAll("<[^>]+>", " "); // Remove remaining HTML tags
+        html = html.replaceAll("&nbsp;", " "); // Replace non-breaking spaces
+        html = html.replaceAll("\\s+", " ").trim(); // Normalize spaces
+        return html;
     }
 
     private static void printHelp() {
