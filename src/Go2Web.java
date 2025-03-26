@@ -1,14 +1,12 @@
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import java.util.regex.*;
 
 public class Go2Web {
+    // Cache to store previously fetched web pages
+    private static final Map<String, String> cache = new HashMap<>();
+
     public static void main(String[] args) {
         if (args.length < 1) {
             printHelp();
@@ -40,6 +38,12 @@ public class Go2Web {
     }
 
     private static void fetchWebPage(String urlString) {
+        // Check if the page is cached
+        if (cache.containsKey(urlString)) {
+            System.out.println("Serving from cache:");
+            System.out.println(cache.get(urlString));
+            return;
+        }
 
         try {
             URL url = new URL(urlString);
@@ -73,6 +77,9 @@ public class Go2Web {
             // Handle content negotiation
             String responseType = conn.getContentType();
             String result = responseType.contains("application/json") ? content.toString() : extractTextContent(content.toString());
+
+            // Cache the response
+            cache.put(urlString, result);
             System.out.println(result);
         } catch (Exception e) {
             System.out.println("Error fetching the webpage: " + e.getMessage());
@@ -81,12 +88,13 @@ public class Go2Web {
 
     private static void searchWeb(String query) {
         try {
-            String searchUrl = "https://www.bing.com/search?q=" + query.replace(" ", "+");
+            String searchUrl = "https://www.bing.com/search?q=" + URLEncoder.encode(query, "UTF-8");
             URL url = new URL(searchUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent", "Mozilla/5.0");
 
+            // Read search results page
             BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             StringBuilder content = new StringBuilder();
             String line;
@@ -95,23 +103,63 @@ public class Go2Web {
                 content.append(line).append("\n");
             }
             reader.close();
+            //System.out.println(content.toString());
+            // Extract search results
+            List<String> results = extractSearchResults(content.toString());
+            if (results.isEmpty()) {
+                System.out.println("No search results found.");
+                return;
+            }
 
-            extractSearchResults(content.toString());
+            // Display search results
+            for (int i = 0; i < results.size(); i++) {
+                System.out.println((i + 1) + ". " + results.get(i));
+            }
+
+            // Prompt user for selection
+            promptUserForSelection(results);
+
         } catch (Exception e) {
             System.out.println("Error performing search: " + e.getMessage());
         }
     }
 
-    private static void extractSearchResults(String html) {
-        Pattern pattern = Pattern.compile("<a href=\\\"(https?://[^\\\"]+)\\\".*?>(.*?)</a>");
+    private static List<String> extractSearchResults(String html) {
+        List<String> results = new ArrayList<>();
+        Pattern pattern = Pattern.compile("<li class=\\\"b_algo\\\".*?<h2><a href=\\\"(https?://[^\"]+)\\\".*?>(.*?)</a>", Pattern.DOTALL);
         Matcher matcher = pattern.matcher(html);
+
         int count = 0;
         while (matcher.find() && count < 10) {
-            System.out.println((count + 1) + ". " + matcher.group(2) + " - " + matcher.group(1));
+            String url = matcher.group(1);
+            String title = matcher.group(2).replaceAll("<.*?>", "").trim(); // Remove HTML tags from title
+            results.add(title + " <" + url + ">");
             count++;
         }
+
+        return results;
     }
 
+    private static void promptUserForSelection(List<String> results) {
+        System.out.println("Enter the number of the website you want to visit:");
+        Scanner scanner = new Scanner(System.in);
+
+        while (true) {
+            try {
+                int choice = Integer.parseInt(scanner.nextLine());
+                if (choice >= 1 && choice <= results.size()) {
+                    String selectedResult = results.get(choice - 1);
+                    String url = selectedResult.substring(selectedResult.indexOf("<") + 1, selectedResult.length() - 1);
+                    fetchWebPage(url);
+                    break;
+                } else {
+                    System.out.println("Invalid selection. Please enter a number between 1 and " + results.size());
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Please enter a number.");
+            }
+        }
+    }
 
 
     private static String extractTextContent(String html) {
@@ -123,7 +171,9 @@ public class Go2Web {
         html = html.replaceAll("\\s+", " ").trim(); // Normalize spaces
         return html;
     }
+
     private static void printHelp() {
+        // Display available command options
         System.out.println("Usage:");
         System.out.println("go2web -u <URL>         # Fetch a webpage and print the readable content");
         System.out.println("go2web -s <search-term> # Search a term using Bing and display top 10 results");

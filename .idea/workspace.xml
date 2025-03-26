@@ -28,8 +28,9 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Application.Go2Web.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "u__tag",
+    "git-widget-placeholder": "s__tag",
     "kotlin-language-version-configured": "true"
   }
 }]]></component>
