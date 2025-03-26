@@ -94,7 +94,6 @@ public class Go2Web {
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent", "Mozilla/5.0");
 
-            // Read search results page
             BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             StringBuilder content = new StringBuilder();
             String line;
@@ -118,7 +117,6 @@ public class Go2Web {
 
             // Prompt user for selection
             promptUserForSelection(results);
-
         } catch (Exception e) {
             System.out.println("Error performing search: " + e.getMessage());
         }
