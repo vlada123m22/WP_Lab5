@@ -1,101 +1,137 @@
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.util.regex.*;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Go2Web {
-    private static final Map<String, String> cache = new HashMap<>();
-
     public static void main(String[] args) {
-        if (args.length == 0) {
+        if (args.length < 1) {
             printHelp();
             return;
         }
 
-        if (args[0].equals("-h")) {
-            printHelp();
-            return;
+        switch (args[0]) {
+            case "-u":
+                if (args.length < 2) {
+                    System.out.println("Error: URL is required.");
+                } else {
+                    fetchWebPage(args[1]);
+                }
+                break;
+            case "-s":
+                if (args.length < 2) {
+                    System.out.println("Error: Search term is required.");
+                } else {
+                    searchWeb(args[1]);
+                }
+                break;
+            case "-h":
+                printHelp();
+                break;
+            default:
+                System.out.println("Invalid option.");
+                printHelp();
         }
+    }
+
+    private static void fetchWebPage(String urlString) {
 
         try {
-            if (args[0].equals("-u")) {
-                String url = args[1];
-                String response = makeHttpRequest(url);
-                System.out.println(response);
-            } else if (args[0].equals("-s")) {
-                String searchTerm = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
-                String searchResults = searchUsingEngine(searchTerm);
-                System.out.println(searchResults);
-            } else {
-                printHelp();
+            URL url = new URL(urlString);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setInstanceFollowRedirects(true);
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+            conn.setRequestProperty("Accept", "text/html,application/json");
+
+            // Handle HTTP redirects
+            int status = conn.getResponseCode();
+            if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM) {
+                String newUrl = conn.getHeaderField("Location");
+                url = new URL(newUrl);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+                conn.setRequestProperty("Accept", "text/html,application/json");
             }
+
+            // Read response content
+            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            StringBuilder content = new StringBuilder();
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                content.append(line).append("\n");
+            }
+            reader.close();
+
+            // Handle content negotiation
+            String responseType = conn.getContentType();
+            String result = responseType.contains("application/json") ? content.toString() : extractTextContent(content.toString());
+            System.out.println(result);
         } catch (Exception e) {
-            System.out.println("Error: " + e.getMessage());
+            System.out.println("Error fetching the webpage: " + e.getMessage());
         }
     }
 
-    private static void printHelp() {
-        System.out.println("Usage:");
-        System.out.println("go2web -u <URL>         # Make an HTTP request to the specified URL and print the response");
-        System.out.println("go2web -s <search-term> # Search the term using your favorite search engine and print top 10 results");
-        System.out.println("go2web -h               # Show this help");
-    }
+    private static void searchWeb(String query) {
+        try {
+            // Perform search using Bing
+            String searchUrl = "https://www.bing.com/search?q=" + query.replace(" ", "+");
+            URL url = new URL(searchUrl);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
 
-    private static String makeHttpRequest(String urlString) throws IOException {
-        if (cache.containsKey(urlString)) {
-            return cache.get(urlString);  // Return cached response if available
+            // Read search results page
+            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            StringBuilder content = new StringBuilder();
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                content.append(line).append("\n");
+            }
+            reader.close();
+        } catch (Exception e) {
+            System.out.println("Error performing search: " + e.getMessage());
         }
-
-        URL url = new URL(urlString);
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestMethod("GET");
-
-        // Handle HTTP redirect (3xx)
-        int responseCode = connection.getResponseCode();
-        if (responseCode >= 300 && responseCode < 400) {
-            String redirectUrl = connection.getHeaderField("Location");
-            return makeHttpRequest(redirectUrl);  // Follow the redirect
-        }
-
-        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-        StringBuilder response = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) {
-            response.append(line);
-        }
-        reader.close();
-
-        String responseStr = response.toString();
-        cache.put(urlString, responseStr);  // Cache the response
-        return responseStr;
-    }
-
-    private static String searchUsingEngine(String searchTerm) throws IOException {
-        // Simple query to Google (or any other search engine URL)
-        String queryUrl = "https://www.google.com/search?q=" + URLEncoder.encode(searchTerm, "UTF-8");
-        String response = makeHttpRequest(queryUrl);
-
-        // Simple extraction of search results (just a naive approach, improving the extraction is needed)
-        List<String> results = extractSearchResults(response);
-        StringBuilder resultStr = new StringBuilder("Top 10 Results:\n");
-
-        for (int i = 0; i < Math.min(10, results.size()); i++) {
-            resultStr.append((i + 1) + ". " + results.get(i) + "\n");
-        }
-
-        return resultStr.toString();
     }
 
     private static List<String> extractSearchResults(String html) {
-        List<String> results = new ArrayList<>();
-        Pattern pattern = Pattern.compile("<h3.*?><a href=\"(.*?)\">(.*?)</a></h3>");
+        // Extract URLs and titles from search results
+        Pattern pattern = Pattern.compile("<a href=\\\"(https?://[^\\\"]+)\\\".*?>(.*?)</a>");
         Matcher matcher = pattern.matcher(html);
-
-        while (matcher.find()) {
-            String link = matcher.group(1);
-            String title = matcher.group(2);
-            results.add(title + " (" + link + ")");
+        List<String> urls = new ArrayList<>();
+        int count = 0;
+        while (matcher.find() && count < 10) {
+            String result = matcher.group(1);
+            System.out.println((count + 1) + ". " + matcher.group(2) + " - " + result);
+            urls.add(result);
+            count++;
         }
-        return results;
+        return urls;
+    }
+
+
+
+    private static String extractTextContent(String html) {
+        // Remove unwanted content like scripts and styles
+        html = html.replaceAll("(?s)<script.*?>.*?</script>", "");
+        html = html.replaceAll("(?s)<style.*?>.*?</style>", "");
+        html = html.replaceAll("<[^>]+>", " "); // Remove HTML tags
+        html = html.replaceAll("&nbsp;", " "); // Replace non-breaking spaces
+        html = html.replaceAll("\\s+", " ").trim(); // Normalize spaces
+        return html;
+    }
+    private static void printHelp() {
+        System.out.println("Usage:");
+        System.out.println("go2web -u <URL>         # Fetch a webpage and print the readable content");
+        System.out.println("go2web -s <search-term> # Search a term using Bing and display top 10 results");
+        System.out.println("go2web -h               # Show this help message");
     }
 }
