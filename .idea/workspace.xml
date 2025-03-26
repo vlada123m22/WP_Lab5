@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="261c1fae-d9a0-4df0-b3ac-abb37c8fedae" name="Changes" comment="" />
+    <list default="true" id="261c1fae-d9a0-4df0-b3ac-abb37c8fedae" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Go2Web.class" beforeDir="false" afterPath="$PROJECT_DIR$/src/Go2Web.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Go2Web.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Go2Web.java" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -26,7 +30,7 @@
   "keyToString": {
     "Application.Go2Web.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "s__tag__redirect",
+    "git-widget-placeholder": "cache-mechanism",
     "kotlin-language-version-configured": "true"
   }
 }]]></component>

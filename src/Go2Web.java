@@ -3,11 +3,16 @@ import java.net.*;
 import java.util.*;
 import java.util.regex.*;
 
-public class Go2Web {
-    // Cache to store previously fetched web pages
+public class
+Go2Web {
+    private static final String CACHE_FILE = "cache.txt";
+    //private static final long CACHE_EXPIRATION = 10 * 60 * 1000; // Cache expires in 10 minutes
     private static final Map<String, String> cache = new HashMap<>();
+    private static final Map<String, Long> cacheTimestamps = new HashMap<>();
 
     public static void main(String[] args) {
+        loadCache();
+
         if (args.length < 1) {
             printHelp();
             return;
@@ -35,12 +40,13 @@ public class Go2Web {
                 System.out.println("Invalid option.");
                 printHelp();
         }
+
+        saveCache();
     }
 
     private static void fetchWebPage(String urlString) {
-        // Check if the page is cached
-        if (cache.containsKey(urlString)) {
-            System.out.println("Serving from cache:");
+        if (isCached(urlString)) {
+            System.out.println("🔄 Serving from cache:");
             System.out.println(cache.get(urlString));
             return;
         }
@@ -48,23 +54,10 @@ public class Go2Web {
         try {
             URL url = new URL(urlString);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setInstanceFollowRedirects(true);
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent", "Mozilla/5.0");
             conn.setRequestProperty("Accept", "text/html,application/json");
 
-            // Handle HTTP redirects
-            int status = conn.getResponseCode();
-            if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM) {
-                String newUrl = conn.getHeaderField("Location");
-                url = new URL(newUrl);
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setRequestProperty("User-Agent", "Mozilla/5.0");
-                conn.setRequestProperty("Accept", "text/html,application/json");
-            }
-
-            // Read response content
             BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             StringBuilder content = new StringBuilder();
             String line;
@@ -74,19 +67,24 @@ public class Go2Web {
             }
             reader.close();
 
-            // Handle content negotiation
-            String responseType = conn.getContentType();
-            String result = responseType.contains("application/json") ? content.toString() : extractTextContent(content.toString());
-
-            // Cache the response
+            String result = extractTextContent(content.toString());
             cache.put(urlString, result);
+            cacheTimestamps.put(urlString, System.currentTimeMillis());
+
             System.out.println(result);
         } catch (Exception e) {
-            System.out.println("Error fetching the webpage: " + e.getMessage());
+            //System.out.println("Error fetching the webpage: " + e.getMessage());
+            System.out.println(e.getMessage());
         }
     }
 
     private static void searchWeb(String query) {
+        if (isCached(query)) {
+            System.out.println("🔄 Serving search results from cache:");
+            displayResults(Arrays.asList(cache.get(query).split(";")));
+            return;
+        }
+
         try {
             String searchUrl = "https://www.bing.com/search?q=" + URLEncoder.encode(query, "UTF-8");
             URL url = new URL(searchUrl);
@@ -102,21 +100,18 @@ public class Go2Web {
                 content.append(line).append("\n");
             }
             reader.close();
-            //System.out.println(content.toString());
-            // Extract search results
+
             List<String> results = extractSearchResults(content.toString());
             if (results.isEmpty()) {
                 System.out.println("No search results found.");
                 return;
             }
 
-            // Display search results
-            for (int i = 0; i < results.size(); i++) {
-                System.out.println((i + 1) + ". " + results.get(i));
-            }
+            // Store results in cache
+            cache.put(query, String.join(";", results));
+            cacheTimestamps.put(query, System.currentTimeMillis());
 
-            // Prompt user for selection
-            promptUserForSelection(results);
+            displayResults(results);
         } catch (Exception e) {
             System.out.println("Error performing search: " + e.getMessage());
         }
@@ -127,15 +122,20 @@ public class Go2Web {
         Pattern pattern = Pattern.compile("<li class=\\\"b_algo\\\".*?<h2><a href=\\\"(https?://[^\"]+)\\\".*?>(.*?)</a>", Pattern.DOTALL);
         Matcher matcher = pattern.matcher(html);
 
-        int count = 0;
-        while (matcher.find() && count < 10) {
+        while (matcher.find() && results.size() < 10) {
             String url = matcher.group(1);
-            String title = matcher.group(2).replaceAll("<.*?>", "").trim(); // Remove HTML tags from title
+            String title = matcher.group(2).replaceAll("<.*?>", "").trim();
             results.add(title + " <" + url + ">");
-            count++;
+        }
+        return results;
+    }
+
+    private static void displayResults(List<String> results) {
+        for (int i = 0; i < results.size(); i++) {
+            System.out.println((i + 1) + ". " + results.get(i));
         }
 
-        return results;
+        promptUserForSelection(results);
     }
 
     private static void promptUserForSelection(List<String> results) {
@@ -159,22 +159,53 @@ public class Go2Web {
         }
     }
 
-
     private static String extractTextContent(String html) {
-        // Remove unwanted content like scripts and styles
         html = html.replaceAll("(?s)<script.*?>.*?</script>", "");
         html = html.replaceAll("(?s)<style.*?>.*?</style>", "");
-        html = html.replaceAll("<[^>]+>", " "); // Remove HTML tags
-        html = html.replaceAll("&nbsp;", " "); // Replace non-breaking spaces
-        html = html.replaceAll("\\s+", " ").trim(); // Normalize spaces
+        html = html.replaceAll("<[^>]+>", " ");
+        html = html.replaceAll("&nbsp;", " ");
+        html = html.replaceAll("\\s+", " ").trim();
         return html;
     }
 
     private static void printHelp() {
-        // Display available command options
         System.out.println("Usage:");
-        System.out.println("go2web -u <URL>         # Fetch a webpage and print the readable content");
-        System.out.println("go2web -s <search-term> # Search a term using Bing and display top 10 results");
+        System.out.println("go2web -u <URL>         # Fetch a webpage and print readable content");
+        System.out.println("go2web -s <search-term> # Search using Bing and display top 10 results");
         System.out.println("go2web -h               # Show this help message");
+    }
+
+    private static void loadCache() {
+        File file = new File(CACHE_FILE);
+        if (!file.exists()) return;
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split("\\|", 3);
+                if (parts.length == 3) {
+                    String key = parts[0];
+                    long timestamp = Long.parseLong(parts[1]);
+                    String value = parts[2];
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error loading cache: " + e.getMessage());
+        }
+    }
+
+    private static void saveCache() {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(CACHE_FILE))) {
+            for (String key : cache.keySet()) {
+                writer.write(key + "|" + cacheTimestamps.get(key) + "|" + cache.get(key));
+                writer.newLine();
+            }
+        } catch (IOException e) {
+            System.err.println("Error saving cache: " + e.getMessage());
+        }
+    }
+
+    private static boolean isCached(String key) {
+        return cache.containsKey(key);
     }
 }
