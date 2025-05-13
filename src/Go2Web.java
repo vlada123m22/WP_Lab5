@@ -3,6 +3,8 @@ import java.net.*;
 import java.util.*;
 import java.util.regex.*;
 
+//TODO sockets, redirect, print when serving from cache
+//httpbin.org/redirect/{number} - for redirect
 public class
 Go2Web {
     private static final String CACHE_FILE = "cache.txt";
@@ -93,7 +95,8 @@ Go2Web {
 
     private static void searchWeb(String query) {
         if (isCached(query)) {
-            System.out.println("🔄 Serving search results from cache:");
+            System.out.println("Serving search results from cache:");
+
             displayResults(Arrays.asList(cache.get(query).split(";")));
             return;
         }
